@@ -121,12 +121,12 @@ void ICMPPing::setPayload(uint8_t * payload)
 void ICMPPing::openSocket()
 {
 
-	W5100.execCmdSn(_socket, Sock_CLOSE);
-    W5100.writeSnIR(_socket, 0xFF);
-    W5100.writeSnMR(_socket, SnMR::IPRAW);
-    W5100.writeSnPROTO(_socket, IPPROTO::ICMP);
-    W5100.writeSnPORT(_socket, 0);
-    W5100.execCmdSn(_socket, Sock_OPEN);
+	w5500.execCmdSn(_socket, Sock_CLOSE);
+    w5500.writeSnIR(_socket, 0xFF);
+    w5500.writeSnMR(_socket, SnMR::IPRAW);
+    w5500.writeSnPROTO(_socket, IPPROTO::ICMP);
+    w5500.writeSnPORT(_socket, 0);
+    w5500.execCmdSn(_socket, Sock_OPEN);
 }
 
 
@@ -155,8 +155,8 @@ void ICMPPing::operator()(const IPAddress& addr, int nRetries, ICMPEchoReply& re
         }
     }
    
-    W5100.execCmdSn(_socket, Sock_CLOSE);
-    W5100.writeSnIR(_socket, 0xFF);
+    w5500.execCmdSn(_socket, Sock_CLOSE);
+    w5500.writeSnIR(_socket, 0xFF);
 }
 
 ICMPEchoReply ICMPPing::operator()(const IPAddress& addr, int nRetries)
@@ -172,29 +172,29 @@ Status ICMPPing::sendEchoRequest(const IPAddress& addr, const ICMPEcho& echoReq)
     // cast operator, we're forced to (1) cast away the constness, and (2) deal
     // with an endianness nightmare.
     uint8_t addri [] = {addr[0], addr[1], addr[2], addr[3]};
-    W5100.writeSnDIPR(_socket, addri);
-    W5100.writeSnTTL(_socket, 128);
+    w5500.writeSnDIPR(_socket, addri);
+    w5500.writeSnTTL(_socket, 128);
     // The port isn't used, becuause ICMP is a network-layer protocol. So we
     // write zero. This probably isn't actually necessary.
-    W5100.writeSnDPORT(_socket, 0);
+    w5500.writeSnDPORT(_socket, 0);
 
     uint8_t serialized [sizeof(ICMPEcho)];
     echoReq.serialize(serialized);
 
-    W5100.send_data_processing(_socket, serialized, sizeof(ICMPEcho));
-    W5100.execCmdSn(_socket, Sock_SEND);
+    w5500.send_data_processing(_socket, serialized, sizeof(ICMPEcho));
+    w5500.execCmdSn(_socket, Sock_SEND);
 
-    while ((W5100.readSnIR(_socket) & SnIR::SEND_OK) != SnIR::SEND_OK) 
+    while ((w5500.readSnIR(_socket) & SnIR::SEND_OK) != SnIR::SEND_OK) 
     {
-        if (W5100.readSnIR(_socket) & SnIR::TIMEOUT)
+        if (w5500.readSnIR(_socket) & SnIR::TIMEOUT)
         {
-            W5100.writeSnIR(_socket, (SnIR::SEND_OK | SnIR::TIMEOUT));
+            w5500.writeSnIR(_socket, (SnIR::SEND_OK | SnIR::TIMEOUT));
             return SEND_TIMEOUT;
         }
 
         ICMPPING_DOYIELD();
     }
-    W5100.writeSnIR(_socket, SnIR::SEND_OK);
+    w5500.writeSnIR(_socket, SnIR::SEND_OK);
     return SUCCESS;
 }
 
@@ -204,7 +204,7 @@ void ICMPPing::receiveEchoReply(const ICMPEcho& echoReq, const IPAddress& addr, 
     while (millis() - start < ping_timeout)
     {
 
-        if (W5100.getRXReceivedSize(_socket) < 1)
+        if (w5500.getRXReceivedSize(_socket) < 1)
         {
         	// take a break, maybe let platform do
         	// some background work (like on ESP8266)
@@ -215,8 +215,8 @@ void ICMPPing::receiveEchoReply(const ICMPEcho& echoReq, const IPAddress& addr, 
         // ah! we did receive something... check it out.
 
         uint8_t ipHeader[6];
-		uint8_t buffer = W5100.readSnRX_RD(_socket);
-		W5100.read_data(_socket, (uint16_t) buffer, ipHeader, sizeof(ipHeader));
+		uint8_t buffer = w5500.readSnRX_RD(_socket);
+		w5500.read_data(_socket, (uint16_t) buffer, ipHeader, sizeof(ipHeader));
 		buffer += sizeof(ipHeader);
 		for (int i = 0; i < 4; ++i)
 			echoReply.addr[i] = ipHeader[i];
@@ -226,14 +226,14 @@ void ICMPPing::receiveEchoReply(const ICMPEcho& echoReq, const IPAddress& addr, 
 		uint8_t serialized[sizeof(ICMPEcho)];
 		if (dataLen > sizeof(ICMPEcho))
 			dataLen = sizeof(ICMPEcho);
-		W5100.read_data(_socket, (uint16_t) buffer, serialized, dataLen);
+		w5500.read_data(_socket, (uint16_t) buffer, serialized, dataLen);
 		echoReply.data.deserialize(serialized);
 
 		buffer += dataLen;
-		W5100.writeSnRX_RD(_socket, buffer);
-		W5100.execCmdSn(_socket, Sock_RECV);
+		w5500.writeSnRX_RD(_socket, buffer);
+		w5500.execCmdSn(_socket, Sock_RECV);
 
-		echoReply.ttl = W5100.readSnTTL(_socket);
+		echoReply.ttl = w5500.readSnTTL(_socket);
 
 		// Since there aren't any ports in ICMP, we need to manually inspect the response
 		// to see if it originated from the request we sent out.
@@ -334,7 +334,7 @@ bool ICMPPing::asyncComplete(ICMPEchoReply& result)
 	}
 
 
-	if (W5100.getRXReceivedSize(_socket))
+	if (w5500.getRXReceivedSize(_socket))
 	{
 		// ooooh, we've got a pending reply
 	    ICMPEcho echoReq(ICMP_ECHOREQ, _id, _curSeq, _payload);

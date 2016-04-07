@@ -8,8 +8,8 @@
  */
 
 #include <SPI.h>
-#include <Ethernet.h>
-#include <utility/w5100.h>
+#include <Ethernet2.h>
+#include <utility/w5500.h>
 
 #define REQ_DATASIZE 64
 #define ICMP_ECHOREPLY 0
